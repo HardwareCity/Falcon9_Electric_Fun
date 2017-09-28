@@ -214,11 +214,57 @@ void PCLViewer::update_cloud()
 
     //picked_event = false;
 
+    // Centroid-based tracking
+    /*
     Eigen::Vector4f centroid;
     pcl::compute3DCentroid (*cloud_roi, centroid);
     pickedPoint.x = centroid(0);
     pickedPoint.y = centroid(1);
     pickedPoint.z = centroid(2);
+    */
+
+    // Weighted centroid tracking
+
+    // calculate median distance
+
+    if(cloud_roi->points.size() > 10)
+    {
+      // Step 1: calculate median distance
+      std::vector<float> distances;
+      distances.resize(cloud_roi->points.size());
+      pcl::PointCloud<pcl::PointXYZRGB>::iterator b1;
+      for (b1 = cloud_roi->points.begin(); b1 < cloud_roi->points.end(); b1++)
+        distances.push_back(b1->z);
+
+      float medianDistance = distances[distances.size()/2];
+
+      // Step 2: 
+      pcl::PointXYZ centroid(0,0,0);
+      float cost_aux = 0.0; // cost grows exponentially regarding the median (=1 in the median, =0 when distance is 0)
+      float parabolla_a = 1.0/(medianDistance*medianDistance);
+      float total_weight = 0.0f;
+      for (b1 = cloud_roi->points.begin(); b1 < cloud_roi->points.end(); b1++)
+      {
+        float zVal = b1->z;
+        if(zVal > medianDistance)
+          zVal *= 2.0;
+
+        cost_aux = parabolla_a * zVal * zVal; // cost = a*x^2
+        total_weight += 1.0 / cost_aux; // weight is inverse of cost
+
+        centroid.x += b1->x / cost_aux;
+        centroid.y += b1->y / cost_aux;
+        centroid.z += b1->z / cost_aux;
+      }
+
+      centroid.x /= total_weight;
+      centroid.y /= total_weight;
+      centroid.z /= total_weight;
+
+      pickedPoint.x = centroid.x;
+      pickedPoint.y = centroid.y;
+      pickedPoint.z = centroid.z;
+    }
   }
 
 
