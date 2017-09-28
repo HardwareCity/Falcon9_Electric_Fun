@@ -20,6 +20,9 @@
 #include <pcl/search/search.h>
 #include <pcl/search/kdtree.h>
 #include <pcl/segmentation/region_growing_rgb.h> // region growing with rgb
+#include <pcl/segmentation/min_cut_segmentation.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/common/centroid.h> // compute 3d centroid
 
 #include <Eigen/Dense>
 
@@ -42,7 +45,7 @@ public:
   explicit PCLViewer (QWidget *parent = 0);
   ~PCLViewer ();
 
-  pcl::PointXYZ pickedPoint;
+  pcl::PointXYZRGB pickedPoint;
   bool picked_event;
 
 public Q_SLOTS:
@@ -62,7 +65,7 @@ public Q_SLOTS:
   maxSliderValueChanged (int value);
 
   void
-  blueSliderValueChanged (int value);
+  minHeightSliderValueChanged (int value);
 
   void
   update_cloud();
@@ -75,7 +78,7 @@ protected:
 
   unsigned int minDist;
   unsigned int maxDist;
-  unsigned int blue;
+  unsigned int minHeight;
 
 private:
   Ui::PCLViewer *ui;
@@ -87,6 +90,8 @@ private:
   Eigen::Vector4f kinect_base_position;
 
   pcl::PassThrough<pcl::PointXYZRGB> pass;
+  pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
+
   boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> cloud_new;
   K2G* k2g;
 };
