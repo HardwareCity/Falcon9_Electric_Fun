@@ -1,6 +1,10 @@
 find_package (Qt4 REQUIRED)
 
-set  (project_SOURCES main.cpp pclviewer.cpp)
+set  (project_SOURCES main.cpp 
+	pclviewer.cpp
+	AbsoluteObjectKF.cpp
+)
+
 set  (project_HEADERS pclviewer.h)
 set  (project_FORMS   pclviewer.ui)
 set  (VTK_LIBRARIES   vtkRendering vtkGraphics vtkHybrid QVTK)
