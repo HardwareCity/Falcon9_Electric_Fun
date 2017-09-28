@@ -14,3 +14,5 @@ The Falcon 9 Electric Fun avionics include:
   1. Using USB to connect to the Naze32 requires the installation of the SiLabs CP2102 VCP Drivers. The drivers are available for download directly from the [SiLabs Website](https://www.silabs.com/products/development-tools/software/usb-to-uart-bridge-vcp-drivers)
   2. Force the serial connection to be recognized by running the following line at the command terminal: sudo ln -s /dev/tty.SLAB_USBtoUART /dev/tty.usbserial
   3. Fire up Cleanflight!
+
+## 3. [Naze32 Rev6 manual](http://quadquestions.com/Naze32_rev6_manual_v1.2.pdf)
