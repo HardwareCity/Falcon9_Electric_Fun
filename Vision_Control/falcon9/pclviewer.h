@@ -62,6 +62,7 @@ public Q_SLOTS:
 
 protected:
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer2;
   PointCloudT::Ptr cloud;
 
   unsigned int minDist;

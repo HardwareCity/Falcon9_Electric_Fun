@@ -17,28 +17,18 @@ PCLViewer::PCLViewer (QWidget *parent) :
   
   minDist = 500;
   maxDist = 5000;
-/*
-  blue  = 128;
 
-  // Fill the cloud with some points
-  for (size_t i = 0; i < cloud->points.size (); ++i)
-  {
-    cloud->points[i].x = 1024 * rand () / (RAND_MAX + 1.0f);
-    cloud->points[i].y = 1024 * rand () / (RAND_MAX + 1.0f);
-    cloud->points[i].z = 1024 * rand () / (RAND_MAX + 1.0f);
-
-    cloud->points[i].r = 128;
-    cloud->points[i].g = 128;
-    cloud->points[i].b = blue;
-  }
-*/
-
-  // Set up the QVTK window
+  // Set up the QVTK windows
   viewer.reset (new pcl::visualization::PCLVisualizer ("viewer", false));
-
   ui->qvtkWidget->SetRenderWindow (viewer->getRenderWindow ());
   viewer->setupInteractor (ui->qvtkWidget->GetInteractor (), ui->qvtkWidget->GetRenderWindow ());
   ui->qvtkWidget->update ();
+
+
+  viewer2.reset (new pcl::visualization::PCLVisualizer ("viewer2", false));
+  ui->qvtkWidget_2->SetRenderWindow (viewer2->getRenderWindow ());
+  viewer2->setupInteractor (ui->qvtkWidget_2->GetInteractor (), ui->qvtkWidget_2->GetRenderWindow ());
+  ui->qvtkWidget_2->update ();
 
   // Connect "random" button and the function
   connect (ui->pushButton_random,  SIGNAL (clicked ()), this, SLOT (randomButtonPressed ()));
@@ -47,9 +37,6 @@ PCLViewer::PCLViewer (QWidget *parent) :
   connect (ui->horizontalSlider_min, SIGNAL (valueChanged (int)), this, SLOT (minSliderValueChanged (int)));
   connect (ui->horizontalSlider_max, SIGNAL (valueChanged (int)), this, SLOT (maxSliderValueChanged (int)));
   connect (ui->horizontalSlider_B, SIGNAL (valueChanged (int)), this, SLOT (blueSliderValueChanged (int)));
-  //connect (ui->horizontalSlider_min, SIGNAL (sliderReleased ()), this, SLOT (RGBsliderReleased ()));
-  //connect (ui->horizontalSlider_G, SIGNAL (sliderReleased ()), this, SLOT (RGBsliderReleased ()));
-  //connect (ui->horizontalSlider_B, SIGNAL (sliderReleased ()), this, SLOT (RGBsliderReleased ()));
 
   // Connect point size slider
   connect (ui->horizontalSlider_p, SIGNAL (valueChanged (int)), this, SLOT (pSliderValueChanged (int)));
@@ -89,7 +76,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   viewer->addCoordinateSystem (1.0);
 
   viewer->addPointCloud (cloud_new, "kinect");
-
+  viewer2->addPointCloud (cloud_new, "kinect");
 
   // Show coordinate system
 
@@ -121,8 +108,14 @@ void PCLViewer::update_cloud()
   //pass.setFilterLimitsNegative (true);
   pass.filter (*cloud_filtered);
 
-  viewer->updatePointCloud(cloud_filtered, "kinect");
+  viewer->updatePointCloud(cloud_new, "kinect");
   ui->qvtkWidget->update();
+
+
+
+  // Update viewer2
+  viewer2->updatePointCloud(cloud_filtered, "kinect");
+  ui->qvtkWidget_2->update();
 }
 
 void
