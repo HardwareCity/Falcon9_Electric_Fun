@@ -1,6 +1,25 @@
 #include "pclviewer.h"
 #include "../build/falcon9/ui_pclviewer.h"
 
+#include <pcl/visualization/point_picking_event.h> 
+
+void
+pp_callback(const pcl::visualization::PointPickingEvent& event, void*
+viewer_void){
+   std::cout << "Picking event active" << std::endl;
+     if(event.getPointIndex()!=-1)
+     {
+         float x,y,z;
+         event.getPoint(x,y,z);
+         
+         PCLViewer* window = (PCLViewer*)viewer_void;
+         window->pickedPoint.x = x;
+         window->pickedPoint.y = y;
+         window->pickedPoint.z = z;
+         window->picked_event = true;
+     }
+} 
+
 PCLViewer::PCLViewer (QWidget *parent) :
   QMainWindow (parent),
   ui (new Ui::PCLViewer)
@@ -15,11 +34,15 @@ PCLViewer::PCLViewer (QWidget *parent) :
 
   // The default color
   
-  minDist = 500;
-  maxDist = 5000;
+  minDist = 1400;
+  maxDist = 2300;
+
+  picked_event = false;
 
   // Set up the QVTK windows
   viewer.reset (new pcl::visualization::PCLVisualizer ("viewer", false));
+  viewer->registerPointPickingCallback (pp_callback,(void*)this);
+
   ui->qvtkWidget->SetRenderWindow (viewer->getRenderWindow ());
   viewer->setupInteractor (ui->qvtkWidget->GetInteractor (), ui->qvtkWidget->GetRenderWindow ());
   ui->qvtkWidget->update ();
@@ -108,14 +131,41 @@ void PCLViewer::update_cloud()
   //pass.setFilterLimitsNegative (true);
   pass.filter (*cloud_filtered);
 
-  viewer->updatePointCloud(cloud_new, "kinect");
+  viewer->updatePointCloud(cloud_filtered, "kinect");
   ui->qvtkWidget->update();
 
 
+  if(picked_event)
+  {
+    std::cout << pickedPoint.x << " ; " << pickedPoint.y << " ; " << pickedPoint.z << std::endl;
+    picked_event = false;
+  }
 
+
+
+/* // --- region growing over all points
+  // -- TOO SLOW to do every cycle
+
+  pcl::search::Search <pcl::PointXYZRGB>::Ptr tree = boost::shared_ptr<pcl::search::Search<pcl::PointXYZRGB> > (new pcl::search::KdTree<pcl::PointXYZRGB>);
+  pcl::RegionGrowingRGB<pcl::PointXYZRGB> reg;
+  reg.setInputCloud (cloud_filtered);
+  //reg.setIndices (indices);
+  reg.setSearchMethod (tree);
+  reg.setDistanceThreshold (0.2);
+  reg.setPointColorThreshold (6);
+  reg.setRegionColorThreshold (5);
+  reg.setMinClusterSize (600);
+
+
+  std::vector <pcl::PointIndices> clusters;
+  reg.extract (clusters);
+
+  pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud ();
+  
   // Update viewer2
-  viewer2->updatePointCloud(cloud_filtered, "kinect");
+  viewer2->updatePointCloud(colored_cloud, "kinect");
   ui->qvtkWidget_2->update();
+  */
 }
 
 void
@@ -177,5 +227,6 @@ PCLViewer::blueSliderValueChanged (int value)
 
 PCLViewer::~PCLViewer ()
 {
+  k2g->shutDown();
   delete ui;
 }

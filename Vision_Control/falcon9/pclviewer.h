@@ -17,6 +17,10 @@
 
 #include <pcl/filters/passthrough.h> // filter by distance
 
+#include <pcl/search/search.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/segmentation/region_growing_rgb.h> // region growing with rgb
+
 #include <Eigen/Dense>
 
 // Visualization Toolkit (VTK)
@@ -37,6 +41,9 @@ class PCLViewer : public QMainWindow
 public:
   explicit PCLViewer (QWidget *parent = 0);
   ~PCLViewer ();
+
+  pcl::PointXYZ pickedPoint;
+  bool picked_event;
 
 public Q_SLOTS:
   void
@@ -60,6 +67,7 @@ public Q_SLOTS:
   void
   update_cloud();
 
+
 protected:
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer2;
@@ -71,6 +79,8 @@ protected:
 
 private:
   Ui::PCLViewer *ui;
+
+
 
 
   QTimer* Update_timer;
