@@ -181,8 +181,8 @@ void PCLViewer::update_cloud()
     sor.setStddevMulThresh (1.0);
     sor.filter (*cloud_roi);
 
-    viewer2->updatePointCloud(cloud_roi, "kinect");
-    ui->qvtkWidget_2->update();
+//    viewer2->updatePointCloud(cloud_roi, "kinect");
+//    ui->qvtkWidget_2->update();
 
     
 
@@ -265,6 +265,32 @@ void PCLViewer::update_cloud()
       pickedPoint.y = centroid.y;
       pickedPoint.z = centroid.z;
     }
+
+
+    // Recalc cluster based on new picked point position
+
+    pass.setInputCloud(cloud_filtered);
+    pass.setFilterFieldName ("x");
+    pass.setFilterLimits (pickedPoint.x - OBJECT_SIZE_WIDTH , pickedPoint.x + OBJECT_SIZE_WIDTH);
+    pass.filter (*cloud_roi);
+
+    pass.setInputCloud(cloud_roi);
+    pass.setFilterFieldName ("y");
+    pass.setFilterLimits (pickedPoint.y - OBJECT_SEARCH_HEIGHT, pickedPoint.y + OBJECT_SEARCH_HEIGHT);
+    pass.filter (*cloud_roi);
+
+    pass.setInputCloud(cloud_roi);
+    pass.setFilterFieldName ("z");
+    pass.setFilterLimits (pickedPoint.z - OBJECT_SIZE_WIDTH, pickedPoint.z + OBJECT_SIZE_WIDTH);
+    pass.filter (*cloud_roi);
+
+    sor.setInputCloud (cloud_roi);
+    sor.setMeanK (50);
+    sor.setStddevMulThresh (1.0);
+    sor.filter (*cloud_roi);
+
+    viewer2->updatePointCloud(cloud_roi, "kinect");
+    ui->qvtkWidget_2->update();
   }
 
 
