@@ -15,6 +15,10 @@
 #include <pcl/point_types.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
+#include <pcl/filters/passthrough.h> // filter by distance
+
+#include <Eigen/Dense>
+
 // Visualization Toolkit (VTK)
 #include <vtkRenderWindow.h>
 
@@ -45,10 +49,10 @@ public Q_SLOTS:
   pSliderValueChanged (int value);
 
   void
-  redSliderValueChanged (int value);
+  minSliderValueChanged (int value);
 
   void
-  greenSliderValueChanged (int value);
+  maxSliderValueChanged (int value);
 
   void
   blueSliderValueChanged (int value);
@@ -60,16 +64,18 @@ protected:
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
   PointCloudT::Ptr cloud;
 
-  unsigned int red;
-  unsigned int green;
+  unsigned int minDist;
+  unsigned int maxDist;
   unsigned int blue;
 
 private:
   Ui::PCLViewer *ui;
 
+
   QTimer* Update_timer;
+  Eigen::Vector4f kinect_base_position;
 
-
+  pcl::PassThrough<pcl::PointXYZRGB> pass;
   boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> cloud_new;
   K2G* k2g;
 };

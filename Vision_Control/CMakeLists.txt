@@ -73,11 +73,11 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${FREENECT2_INCLUDE_DIRS})
 include_directories(${INCLUDE})
 
-add_executable(Kinect2Grabber      test.cpp)
-add_executable(MultiKinect2Grabber multi_test.cpp)
+#add_executable(Kinect2Grabber      test.cpp)
+#add_executable(MultiKinect2Grabber multi_test.cpp)
 
-target_link_libraries(Kinect2Grabber      ${OpenCV_LIBS} ${FREENECT2_LIBRARY} ${PCL_LIBRARIES} ${BOOST_LIBS})
-target_link_libraries(MultiKinect2Grabber ${OpenCV_LIBS} ${FREENECT2_LIBRARY} ${PCL_LIBRARIES} ${BOOST_LIBS})
+#target_link_libraries(Kinect2Grabber      ${OpenCV_LIBS} ${FREENECT2_LIBRARY} ${PCL_LIBRARIES} ${BOOST_LIBS})
+#target_link_libraries(MultiKinect2Grabber ${OpenCV_LIBS} ${FREENECT2_LIBRARY} ${PCL_LIBRARIES} ${BOOST_LIBS})
 
 add_subdirectory(falcon9)
 
