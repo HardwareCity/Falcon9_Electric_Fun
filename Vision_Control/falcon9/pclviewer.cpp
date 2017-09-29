@@ -156,14 +156,78 @@ PCLViewer::PCLViewer (QWidget *parent) :
   viewer2->addText("Rocket position: ...", 10, 30, "rocketPos");
 
 
+
+  // -------
+  // AR View
+
+  renWin = vtkRenderWindow::New();
+  ui->qvtkWidget_3->SetRenderWindow (renWin);
+
+  backgroundRenderer = vtkRenderer::New();
+  sceneRenderer = vtkRenderer::New();
+  importer = vtkImageImport::New();
+  imageActor = vtkImageActor::New();
+  imageFlip = vtkImageFlip::New();
+
+
+
+  importer->SetWholeExtent(0, 1920-1, 0, 1080-1, 0, 0);    // 640x480 image...
+  importer->SetDataExtentToWholeExtent();
+  importer->SetNumberOfScalarComponents( 3 );        // 3 for R G B A ....    importer->SetDataSpacing(1,1,1);
+  importer->SetDataScalarTypeToUnsignedChar();
+  
+
+  // Create a dummy image to show on startup
+  cv::Mat dummyMat = cv::Mat(1080, 1920, CV_8UC3, cv::Scalar(0, 0, 0));
+  importer->SetImportVoidPointer((void * ) dummyMat.data, 1);
+
+  // Flip Image
+  imageFlip->SetInput(NULL); // refresh pointer to force render again
+  imageFlip->SetInput(importer->GetOutput());
+  renWin->Render();
+  imageFlip->Update();
+  imageFlip->SetFilteredAxis(1);         // inverted Y axis
+  
+
+
+  imageActor->SetInput( imageFlip->GetOutput() );
+  imageActor->SetDisplayExtent(0, 1920-1, 0, 1080-1, 0, 0);
+
+  backgroundRenderer->SetLayer(0);
+  sceneRenderer->SetLayer(1);
+
+  renWin->SetNumberOfLayers(2);
+  renWin->AddRenderer(backgroundRenderer);
+  renWin->AddRenderer(sceneRenderer);
+  renWin->SetSize(1920,1080);
+
+  backgroundRenderer->AddActor2D( imageActor );
+
+  //return;
+  
+  //ui->qvtkWidget_3->update ();
+
+  // ------
+
   Update_timer = new QTimer();
   connect(Update_timer, SIGNAL(timeout()), this, SLOT(update_cloud()));
   Update_timer->start(100);
+
+  //cv::namedWindow("cvwindow");
 }
 
 void PCLViewer::update_cloud()
 {
-  cloud_new = k2g->getCloud();
+  int width = 512; int height = 424;
+  cv::Mat tmp_depth;
+  cv::Mat tmp_color;
+
+  k2g->get(tmp_color, tmp_depth, cloud_new);
+
+  cv::Mat tmp_color_3bytes;
+  cv::cvtColor(tmp_color,tmp_color_3bytes,cv::COLOR_BGRA2RGB);
+
+  //cv::imshow("cvwindow", tmp_color_3bytes);
 
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -384,6 +448,40 @@ void PCLViewer::update_cloud()
 
 
     picked_event = false;
+
+
+    // -------
+    // AR View
+
+    // Set the data pointer to importer
+    importer->SetImportVoidPointer((void * ) tmp_color_3bytes.data, 1);
+
+    // Flip Image
+    imageFlip->SetInput(NULL); // refresh pointer to force render again
+    imageFlip->SetInput(importer->GetOutput());
+    renWin->Render();
+    imageFlip->Update();
+
+    // Set up the background camera to fill the renderer with the image
+    double origin[3];
+    double spacing[3];
+    int extent[6];
+    imageFlip->GetOutput()->GetOrigin( origin );
+    imageFlip->GetOutput()->GetSpacing( spacing );
+    imageFlip->GetOutput()->GetExtent( extent );
+
+    // Display camera image in background layer
+    vtkCamera* camera = backgroundRenderer->GetActiveCamera();
+    camera->ParallelProjectionOn();
+
+    double xc = origin[0] + 0.5*(extent[0] + extent[1])*spacing[0];
+    double yc = origin[1] + 0.5*(extent[2] + extent[3])*spacing[1];
+    //double xd = (extent[1] - extent[0] + 1)*spacing[0];
+    double yd = (extent[3] - extent[2] + 1)*spacing[1];
+    double d = camera->GetDistance();
+    camera->SetParallelScale(0.5*yd);
+    camera->SetFocalPoint(xc,yc,0.0);
+    camera->SetPosition(xc,yc,d);
   }
 
 

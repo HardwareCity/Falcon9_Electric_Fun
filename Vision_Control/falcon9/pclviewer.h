@@ -30,6 +30,23 @@
 
 // Visualization Toolkit (VTK)
 #include <vtkRenderWindow.h>
+#include "vtkRenderer.h"
+#include "vtkImageActor.h"
+#include "vtkImageFlip.h"
+#include "vtkImageImport.h"
+#include "vtkImageData.h"
+#include "vtkCamera.h"
+#include "vtkCubeSource.h"
+#include "vtkSmartPointer.h"
+#include "vtkPolyDataMapper.h"
+#include "vtkProperty.h"
+#include "vtkMath.h"
+#include "vtkSphereSource.h"
+#include "vtkMatrix4x4.h"
+#include "vtkTransform.h"
+#include "vtkPerspectiveTransform.h"
+#include "vtkTransform.h"
+#include "vtkPlane.h"
 
 typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
@@ -112,6 +129,14 @@ private:
 
   boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGB>> cloud_new;
   K2G* k2g;
+
+  // AR VTK
+  vtkRenderWindow *renWin;
+  vtkRenderer *backgroundRenderer;
+  vtkRenderer *sceneRenderer;
+  vtkImageImport *importer;
+  vtkImageActor *imageActor;
+  vtkImageFlip *imageFlip;
 };
 
 #endif // PCLVIEWER_H
