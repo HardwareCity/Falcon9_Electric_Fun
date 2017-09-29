@@ -456,6 +456,11 @@ void PCLViewer::loadSettings()
   minDist = settings.value("minDist", 1200).toUInt();
   maxDist = settings.value("maxDist", 2100).toUInt();
   minHeight = settings.value("minHeight", 100).toUInt();
+
+  // PID Settings loaded to PID object directly
+  pid.setP(settings.value("Kp", 1.0).toFloat());
+  pid.setI(settings.value("Ki", 0.0).toFloat());
+  pid.setD(settings.value("Kd", 0.0).toFloat());
 }
 
 void PCLViewer::saveSettings()
@@ -464,4 +469,9 @@ void PCLViewer::saveSettings()
   settings.setValue("minDist", minDist);
   settings.setValue("maxDist", maxDist);
   settings.setValue("minHeight", minHeight);
+
+  // PID Settings
+  settings.setValue("Kp", pid.getP());
+  settings.setValue("Ki", pid.getI());
+  settings.setValue("Kd", pid.getD());
 }
