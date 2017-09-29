@@ -8,6 +8,8 @@
 #define OBJECT_SEARCH_FACTOR 1.1
 //#define TEST_RIG 1
 
+#define MOTION_TICK_SECS 0.033
+
 void
 pp_callback(const pcl::visualization::PointPickingEvent& event, void*
 viewer_void){
@@ -37,13 +39,25 @@ PCLViewer::PCLViewer (QWidget *parent) :
   // The number of points in the cloud
   cloud->points.resize (200);
 
+  kf.reset();
+
   // The default color
   
-  minDist = 1400;
-  maxDist = 2300;
+  minDist = 1200;
+  maxDist = 2100;
   minHeight = 100;
 
+  ui->horizontalSlider_min->setValue(minDist);
+  minSliderValueChanged(minDist);
+
+  ui->horizontalSlider_max->setValue(maxDist);
+  maxSliderValueChanged(maxDist);
+
+  ui->horizontalSlider_minHeight->setValue(minHeight);
+  minHeightSliderValueChanged(minHeight);
+
   picked_event = false;
+  run = false;
 
   // Set up the QVTK windows
   viewer.reset (new pcl::visualization::PCLVisualizer ("viewer", false));
@@ -51,12 +65,14 @@ PCLViewer::PCLViewer (QWidget *parent) :
 
   ui->qvtkWidget->SetRenderWindow (viewer->getRenderWindow ());
   viewer->setupInteractor (ui->qvtkWidget->GetInteractor (), ui->qvtkWidget->GetRenderWindow ());
+  viewer->setShowFPS(false);
   ui->qvtkWidget->update ();
 
 
   viewer2.reset (new pcl::visualization::PCLVisualizer ("viewer2", false));
   ui->qvtkWidget_2->SetRenderWindow (viewer2->getRenderWindow ());
   viewer2->setupInteractor (ui->qvtkWidget_2->GetInteractor (), ui->qvtkWidget_2->GetRenderWindow ());
+  viewer2->setShowFPS(false); 
   ui->qvtkWidget_2->update ();
 
   // Connect "random" button and the function
@@ -116,6 +132,18 @@ PCLViewer::PCLViewer (QWidget *parent) :
   coeffs.values.push_back(0.0);
   viewer->addPlane (coeffs, "plane");
 
+  pcl::PointXYZ p0;
+  p0.x = 0.0;
+  p0.y = 0.0;
+  p0.z = 0.0;
+  viewer2->addSphere(p0, OBJECT_SIZE_WIDTH, 1.0, 0.0, 0.0, "rocket");
+
+  viewer2->addCoordinateSystem (1.0);
+
+  // Viewer2
+  viewer2->addText("Raw position: ", 10, 10, "rawPos");
+  viewer2->addText("KF position: ", 10, 20, "kfPos");
+
 
   Update_timer = new QTimer();
   connect(Update_timer, SIGNAL(timeout()), this, SLOT(update_cloud()));
@@ -150,10 +178,39 @@ void PCLViewer::update_cloud()
   ui->qvtkWidget->update();
 
 
-  if(picked_event)
+  if(run || picked_event)
   {
+    run = true;
+
     // Print picked point
     std::cout << pickedPoint.x << " ; " << pickedPoint.y << " ; " << pickedPoint.z << std::endl;
+
+    // Save last position
+    Eigen::Vector3f lastPosition = kf.getPos();
+
+    if(picked_event) // first time, force Kalman Filter state
+    {
+      kf.reset();
+      Eigen::Vector3f initPos;
+      initPos << kinect_base_position(0) + pickedPoint.x,
+       kinect_base_position(1) - pickedPoint.y,
+       kinect_base_position(2) - pickedPoint.z;
+
+      kf.setPos(initPos);
+    }
+    else
+    {
+      // Kalman Filter predict step
+      Matrix6f QAbs; // Process noise
+      QAbs <<   
+        0.05, 0,    0,      0,    0,    0,
+        0,    0.05, 0,      0,    0,    0,
+        0,    0,    0.05,   0,    0,    0,
+        0,    0,    0,      0.5,  0,    0,
+        0,    0,    0,      0,    0.5,  0,
+        0,    0,    0,      0,    0,    0.5;
+      kf.predict(MOTION_TICK_SECS, QAbs);
+    }
 
     // Set region of interest around picked point
     float OBJECT_SEARCH_WIDHT = OBJECT_SIZE_WIDTH/2.0 * OBJECT_SEARCH_FACTOR;
@@ -181,54 +238,13 @@ void PCLViewer::update_cloud()
     sor.setStddevMulThresh (1.0);
     sor.filter (*cloud_roi);
 
-//    viewer2->updatePointCloud(cloud_roi, "kinect");
-//    ui->qvtkWidget_2->update();
-
-    
-
-/*
-    pcl::MinCutSegmentation<pcl::PointXYZRGB> seg;
-    seg.setInputCloud (cloud_roi);
-
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr foreground_points(new pcl::PointCloud<pcl::PointXYZRGB> ());
-    foreground_points->points.push_back(pickedPoint);
-    seg.setForegroundPoints (foreground_points);
-
-    seg.setSigma (maxDist/1000.0);
-    seg.setRadius (2*OBJECT_SIZE_HEIGHT);
-    seg.setNumberOfNeighbours (10);
-    seg.setSourceWeight (minDist/1000.0);
-
-    std::vector <pcl::PointIndices> clusters;
-    seg.extract (clusters);
-
-    std::cout << "Maximum flow is " << seg.getMaxFlow () << std::endl;
-
-    pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = seg.getColoredCloud ();
-    viewer2->updatePointCloud(colored_cloud, "kinect");
-    ui->qvtkWidget_2->update();
-*/
-
-
-
-
-    //picked_event = false;
-
-    // Centroid-based tracking
-    /*
-    Eigen::Vector4f centroid;
-    pcl::compute3DCentroid (*cloud_roi, centroid);
-    pickedPoint.x = centroid(0);
-    pickedPoint.y = centroid(1);
-    pickedPoint.z = centroid(2);
-    */
-
     // Weighted centroid tracking
 
     // calculate median distance
 
     if(cloud_roi->points.size() > 10)
     {
+
       // Step 1: calculate median distance
       std::vector<float> distances;
       distances.resize(cloud_roi->points.size());
@@ -264,33 +280,77 @@ void PCLViewer::update_cloud()
       pickedPoint.x = centroid.x;
       pickedPoint.y = centroid.y;
       pickedPoint.z = centroid.z;
+
+      // Recalc cluster based on new picked point position
+
+      pass.setInputCloud(cloud_filtered);
+      pass.setFilterFieldName ("x");
+      pass.setFilterLimits (pickedPoint.x - OBJECT_SIZE_WIDTH , pickedPoint.x + OBJECT_SIZE_WIDTH);
+      pass.filter (*cloud_roi);
+
+      pass.setInputCloud(cloud_roi);
+      pass.setFilterFieldName ("y");
+      pass.setFilterLimits (pickedPoint.y - OBJECT_SEARCH_HEIGHT, pickedPoint.y + OBJECT_SEARCH_HEIGHT);
+      pass.filter (*cloud_roi);
+
+      pass.setInputCloud(cloud_roi);
+      pass.setFilterFieldName ("z");
+      pass.setFilterLimits (pickedPoint.z - OBJECT_SIZE_WIDTH, pickedPoint.z + OBJECT_SIZE_WIDTH);
+      pass.filter (*cloud_roi);
+
+      sor.setInputCloud (cloud_roi);
+      sor.setMeanK (50);
+      sor.setStddevMulThresh (1.0);
+      sor.filter (*cloud_roi);
+
+      Eigen::Vector3f pos;
+      pos << kinect_base_position(0) + pickedPoint.x,
+       kinect_base_position(1) - pickedPoint.y,
+       kinect_base_position(2) - pickedPoint.z;
+
+      // Kalman Filter update step
+      if(!picked_event) // do not update on first cycle
+      {
+        
+        
+        Eigen::Vector3f vel = pos - lastPosition;
+
+        // Measurement noise
+        Matrix6f RAbs;
+        RAbs <<   
+          0.05, 0,    0,    0,    0,    0,
+          0,    0.05, 0,    0,    0,    0,
+          0,    0,    0.05, 0,    0,    0,
+          0,    0,    0,    2.5,  0,    0,
+          0,    0,    0,    0,    2.5,  0,
+          0,    0,    0,    0,    0,    2.5;
+        kf.update(pos, vel, MOTION_TICK_SECS, RAbs);
+      }
+      Eigen::Vector3f newPosition = kf.getPos();
+
+      // Update pickpoint
+      //pickedPoint.x = newPosition(0);
+      //pickedPoint.y = newPosition(1);
+      //pickedPoint.z = newPosition(2);
+
+      pcl::PointXYZ p0;
+      p0.x = newPosition(0);
+      p0.y = newPosition(1);
+      p0.z = newPosition(2);
+      //add arrow between two center
+      viewer2->updateSphere(p0, OBJECT_SIZE_WIDTH, 1.0, 0.0, 0.0, "rocket");
+
+
+      viewer2->updateText(QString().sprintf("Raw position: (%.2f,%.2f,%.2f)", pos(0), pos(1), pos(2)).toStdString(), 10, 10, "rawPos");
+      viewer2->updateText(QString().sprintf("KF position: (%.2f,%.2f,%.2f)", newPosition(0), newPosition(1), newPosition(2)).toStdString(), 10, 20, "kfPos");
+
+
+      viewer2->updatePointCloud(cloud_roi, "kinect");
+      ui->qvtkWidget_2->update();
     }
 
 
-    // Recalc cluster based on new picked point position
-
-    pass.setInputCloud(cloud_filtered);
-    pass.setFilterFieldName ("x");
-    pass.setFilterLimits (pickedPoint.x - OBJECT_SIZE_WIDTH , pickedPoint.x + OBJECT_SIZE_WIDTH);
-    pass.filter (*cloud_roi);
-
-    pass.setInputCloud(cloud_roi);
-    pass.setFilterFieldName ("y");
-    pass.setFilterLimits (pickedPoint.y - OBJECT_SEARCH_HEIGHT, pickedPoint.y + OBJECT_SEARCH_HEIGHT);
-    pass.filter (*cloud_roi);
-
-    pass.setInputCloud(cloud_roi);
-    pass.setFilterFieldName ("z");
-    pass.setFilterLimits (pickedPoint.z - OBJECT_SIZE_WIDTH, pickedPoint.z + OBJECT_SIZE_WIDTH);
-    pass.filter (*cloud_roi);
-
-    sor.setInputCloud (cloud_roi);
-    sor.setMeanK (50);
-    sor.setStddevMulThresh (1.0);
-    sor.filter (*cloud_roi);
-
-    viewer2->updatePointCloud(cloud_roi, "kinect");
-    ui->qvtkWidget_2->update();
+    picked_event = false;
   }
 
 

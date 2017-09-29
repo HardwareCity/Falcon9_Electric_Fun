@@ -5,6 +5,7 @@
 
 // Kinect
 #include "k2g.h"
+#include "AbsoluteObjectKF.h"
 
 // Qt
 #include <QMainWindow>
@@ -47,6 +48,7 @@ public:
 
   pcl::PointXYZRGB pickedPoint;
   bool picked_event;
+  bool run;
 
 public Q_SLOTS:
   void
@@ -83,7 +85,7 @@ protected:
 private:
   Ui::PCLViewer *ui;
 
-
+  AbsoluteObjectKF kf;
 
 
   QTimer* Update_timer;
