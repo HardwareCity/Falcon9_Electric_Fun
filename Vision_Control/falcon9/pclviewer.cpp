@@ -2,6 +2,7 @@
 #include "../build/falcon9/ui_pclviewer.h"
 
 #include <pcl/visualization/point_picking_event.h> 
+#include <QSettings>
 
 #define OBJECT_SIZE_WIDTH 0.07
 #define OBJECT_SIZE_HEIGHT 0.15
@@ -34,18 +35,16 @@ PCLViewer::PCLViewer (QWidget *parent) :
   ui->setupUi (this);
   //this->setWindowTitle ("PCL viewer");
 
+  // Load user settings
+  m_sSettingsFile = "demosettings.ini";
+  loadSettings();
+
   // Setup the cloud pointer
   cloud.reset (new PointCloudT);
   // The number of points in the cloud
   cloud->points.resize (200);
 
   kf.reset();
-
-  // The default color
-  
-  minDist = 1200;
-  maxDist = 2100;
-  minHeight = 100;
 
   ui->horizontalSlider_min->setValue(minDist);
   minSliderValueChanged(minDist);
@@ -391,17 +390,8 @@ void PCLViewer::update_cloud()
 void
 PCLViewer::saveButtonPressed ()
 {
-  printf ("Random button was pressed\n");
-
-  // Set the new color
-  for (size_t i = 0; i < cloud->size(); i++)
-  {
-    cloud->points[i].r = 255 *(1024 * rand () / (RAND_MAX + 1.0f));
-    cloud->points[i].g = 255 *(1024 * rand () / (RAND_MAX + 1.0f));
-    cloud->points[i].b = 255 *(1024 * rand () / (RAND_MAX + 1.0f));
-  }
-
-  viewer->updatePointCloud (cloud, "cloud");
+  saveSettings();
+  fprintf(stdout,"SETTINGS SAVED!\n");
 }
 
 void
@@ -456,4 +446,22 @@ PCLViewer::~PCLViewer ()
 {
   k2g->shutDown();
   delete ui;
+}
+
+
+void PCLViewer::loadSettings()
+{
+  QSettings settings(m_sSettingsFile, QSettings::NativeFormat);
+  
+  minDist = settings.value("minDist", 1200).toUInt();
+  maxDist = settings.value("maxDist", 2100).toUInt();
+  minHeight = settings.value("minHeight", 100).toUInt();
+}
+
+void PCLViewer::saveSettings()
+{
+  QSettings settings(m_sSettingsFile, QSettings::NativeFormat);
+  settings.setValue("minDist", minDist);
+  settings.setValue("maxDist", maxDist);
+  settings.setValue("minHeight", minHeight);
 }

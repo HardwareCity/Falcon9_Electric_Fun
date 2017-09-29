@@ -6,6 +6,7 @@
 // Kinect
 #include "k2g.h"
 #include "AbsoluteObjectKF.h"
+#include "PID.h"
 
 // Qt
 #include <QMainWindow>
@@ -85,10 +86,15 @@ protected:
   unsigned int minHeight;
 
 private:
+  // User Settings
+  void loadSettings();
+  void saveSettings();
+  QString m_sSettingsFile;
+
   Ui::PCLViewer *ui;
 
   AbsoluteObjectKF kf;
-
+  PID pid;
 
   QTimer* Update_timer;
   Eigen::Vector4f kinect_base_position;
