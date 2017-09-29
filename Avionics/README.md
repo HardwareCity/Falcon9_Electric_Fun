@@ -16,3 +16,7 @@ The Falcon 9 Electric Fun avionics include:
   3. Fire up Cleanflight!
 
 ## 3. [Naze32 Rev6 manual](http://quadquestions.com/Naze32_rev6_manual_v1.2.pdf)
+
+## 4.[Fucking RC legacy protocols!](http://www.dronetrest.com/t/rc-radio-control-protocols-explained-pwm-ppm-pcm-sbus-ibus-dsmx-dsm2/1357) 
+  
+## [WTF is Oneshot ESC?](https://oscarliang.com/oneshot125-esc-quadcopter-fpv/)
