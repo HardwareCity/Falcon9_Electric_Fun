@@ -20,3 +20,5 @@ The Falcon 9 Electric Fun avionics include:
 ## 4.[Fucking RC legacy protocols!](http://www.dronetrest.com/t/rc-radio-control-protocols-explained-pwm-ppm-pcm-sbus-ibus-dsmx-dsm2/1357) 
   
 ## [WTF is Oneshot ESC?](https://oscarliang.com/oneshot125-esc-quadcopter-fpv/)
+
+## [MultiWii-Firmware](https://github.com/multiwii/multiwii-firmware)
