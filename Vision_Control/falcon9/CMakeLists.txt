@@ -3,6 +3,7 @@ find_package (Qt4 REQUIRED)
 set  (project_SOURCES main.cpp 
 	pclviewer.cpp
 	AbsoluteObjectKF.cpp
+	ClippedRamp.cpp
 	PID.cpp
 )
 

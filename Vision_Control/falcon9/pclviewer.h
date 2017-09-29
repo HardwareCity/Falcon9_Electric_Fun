@@ -7,6 +7,7 @@
 #include "k2g.h"
 #include "AbsoluteObjectKF.h"
 #include "PID.h"
+#include "ClippedRamp.h"
 
 // Qt
 #include <QMainWindow>
@@ -58,6 +59,17 @@ namespace Ui
   class PCLViewer;
 }
 
+class FogPixel
+{
+public:
+  vtkActor* actor;          // cube actor
+  Eigen::Vector3f pos;      // current position
+  Eigen::Vector3f vel;      // current velocity
+  int age;                  // cycle counter
+  int death;                // max number of cycles
+  ClippedRamp opacityRamp;  // opacity ramp
+};
+
 class PCLViewer : public QMainWindow
 {
   Q_OBJECT
@@ -98,6 +110,8 @@ public Q_SLOTS:
   update_cloud();
 
   void setOrigin();
+
+  void showPixelFog(bool active);
 
 
 protected:
@@ -140,7 +154,15 @@ private:
   vtkImageActor *imageActor;
   vtkImageFlip *imageFlip;
 
+  vtkCubeSource* cubeSource;
   vtkActor* cubeActor;
+
+  bool showFog;
+  std::vector<FogPixel> fogElements;
+  void updatePixelFog(float deltaT);
+  FogPixel createFogPixel();
+
+  int getRandom(int min, int max);
 };
 
 #endif // PCLVIEWER_H

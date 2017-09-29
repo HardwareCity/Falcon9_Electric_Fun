@@ -4,8 +4,8 @@
 #include <pcl/visualization/point_picking_event.h> 
 #include <QSettings>
 
-#define OBJECT_SIZE_WIDTH 0.07
-#define OBJECT_SIZE_HEIGHT 0.15
+#define OBJECT_SIZE_WIDTH 0.10
+#define OBJECT_SIZE_HEIGHT 0.57
 #define OBJECT_SEARCH_FACTOR 1.1
 //#define TEST_RIG 1
 
@@ -13,6 +13,8 @@
 
 //#define OBJECT_ACTOR_CUBE 1
 #define OBJECT_ACTOR_PCLOGO 1
+
+//#define CAMERA_TILT 
 
 void
 pp_callback(const pcl::visualization::PointPickingEvent& event, void*
@@ -61,6 +63,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   controlOutput = 0.0f;
   picked_event = false;
   run = false;
+  showFog = false;
 
 
   // Setup the cloud pointer
@@ -89,6 +92,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   // Connect buttons and the functions
   connect (ui->pushButton_save,  SIGNAL (clicked ()), this, SLOT (saveButtonPressed ()));
   connect (ui->pushButton_setOrigin,  SIGNAL (clicked ()), this, SLOT (setOrigin()));
+  connect (ui->pushButton_showFog,  SIGNAL (toggled(bool)), this, SLOT (showPixelFog(bool)));
 
   // Connect sliders and their functions
   connect (ui->horizontalSlider_min, SIGNAL (valueChanged (int)), this, SLOT (minSliderValueChanged (int)));
@@ -207,6 +211,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   backgroundRenderer->AddActor2D( imageActor );
 
   cubeActor = vtkActor::New();
+  cubeSource = vtkCubeSource::New();
 #ifdef OBJECT_ACTOR_CUBE
   // Create cube to show on AR view
   vtkCubeSource* cubeSource = vtkCubeSource::New();
@@ -232,6 +237,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   cubeActor->SetMapper(mapper);
   cubeActor->SetScale(0.005);
   cubeActor->SetPosition(0,0,25);
+  cubeActor->SetOrigin(-0.18,0,0);
   cubeActor->GetProperty()->SetColor(233/255.0, 75/255.0, 53/255.0);
   sceneRenderer->AddActor(cubeActor);
 #endif
@@ -572,7 +578,7 @@ void PCLViewer::update_cloud()
     camPos[2] = kinect_base_position(2);
 #endif
 #ifdef OBJECT_ACTOR_PCLOGO
-    camPos[0] = kinect_base_position(0) + 0.14; // Offset between depth and RGB
+    camPos[0] = kinect_base_position(0) - 0.05; // Offset between depth and RGB
     camPos[1] = kinect_base_position(1) - 0.04;
     camPos[2] = kinect_base_position(2);
 #endif
@@ -589,7 +595,12 @@ void PCLViewer::update_cloud()
     
     camera->SetClippingRange(0.01, 10000.0);
     camera->SetViewAngle(43);
+  
+    // FOG
+    updatePixelFog(MOTION_TICK_SECS);
+
   }
+
 
 
 
@@ -638,6 +649,11 @@ PCLViewer::RGBsliderReleased ()
   }
   viewer->updatePointCloud (cloud, "cloud");
   */
+}
+
+void PCLViewer::showPixelFog(bool active) {
+  fprintf(stderr,"Showfog: %d\n", active?1:0);
+  this->showFog = active;
 }
 
 void
@@ -692,6 +708,7 @@ void PCLViewer::setOrigin()
 
 PCLViewer::~PCLViewer ()
 {
+  Update_timer->stop();
   k2g->shutDown();
   delete ui;
 }
@@ -724,4 +741,87 @@ void PCLViewer::saveSettings()
   settings.setValue("Ki", (double)pid.getI());
   settings.setValue("Kd", (double)pid.getD());
   settings.setValue("maxInt", (double)pid.getMaxInt());
+}
+
+void PCLViewer::updatePixelFog(float deltaT) {
+  // Update elements
+  std::vector<FogPixel>::iterator it = fogElements.begin();
+  while(it != fogElements.end())
+  {
+    // check death
+    if(it->age >= it->death)
+    {
+      sceneRenderer->RemoveActor(it->actor);
+      it = fogElements.erase(it);
+      continue;
+    }
+    
+    // Iterate position
+    it->pos = it->pos + deltaT * it->vel;
+    if(it->pos[1] < 0)
+    {
+      it->pos[1] = 0;
+      it->vel[1] = 0;
+    }
+    it->actor->SetPosition(it->pos[0], it->pos[1], it->pos[2]);
+
+    // Set actor opacity
+    float opacity = it->opacityRamp.getValue(it->age);
+    //fprintf(stderr,"opacity: %.2f\n", opacity);
+    it->actor->GetProperty()->SetOpacity(opacity);
+
+    // Increment age
+    it->age++;
+
+    // Iterate next pixel
+    it++;
+  }
+
+  // Create fog particles
+  if(showFog)
+  {
+    fogElements.push_back(createFogPixel());
+    fogElements.push_back(createFogPixel());
+    fogElements.push_back(createFogPixel());
+    fogElements.push_back(createFogPixel());
+  }
+}
+
+FogPixel PCLViewer::createFogPixel()
+{
+  FogPixel ret;
+
+  vtkActor* fogActor = vtkActor::New();
+  vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+  mapper->SetInput(cubeSource->GetOutput());
+  fogActor->SetMapper(mapper);
+  fogActor->SetScale(0.05);
+  
+  Eigen::Vector3f cubePosition_KF = kf.getPos();
+  Eigen::Vector3f cubePosition;
+  cubePosition << kinect_base_position(0) + pickedPoint.x,
+    kinect_base_position(1) - pickedPoint.y - OBJECT_SIZE_HEIGHT/2,
+    kinect_base_position(2) - pickedPoint.z;
+  fogActor->GetProperty()->SetColor(233/255.0, 75/255.0, 53/255.0);
+  fogActor->SetPosition(cubePosition(0), cubePosition(1), cubePosition(2));
+
+  sceneRenderer->AddActor(fogActor);
+
+  
+
+  ret.actor = fogActor;
+  ret.pos = cubePosition;
+  ret.vel << getRandom(-200, 200)*0.001, -1 - getRandom(0, 300)*0.001, getRandom(-200, 200)*0.001;
+  ret.age = 0;
+  ret.death = getRandom(40, 50);
+  int numCyclesFadeOut = getRandom(4, 10);
+  ret.opacityRamp = ClippedRamp(ret.death, 0.0, ret.death - numCyclesFadeOut, 1.0, 0.0, 1.0);
+
+  return ret;
+}
+
+int PCLViewer::getRandom(int min, int max) {
+  int range = max - min;
+  int number = range*2;
+  return qrand() % number - (range/2);
 }
