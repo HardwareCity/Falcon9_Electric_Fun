@@ -137,6 +137,8 @@ private:
   vtkImageImport *importer;
   vtkImageActor *imageActor;
   vtkImageFlip *imageFlip;
+
+  vtkActor* cubeActor;
 };
 
 #endif // PCLVIEWER_H

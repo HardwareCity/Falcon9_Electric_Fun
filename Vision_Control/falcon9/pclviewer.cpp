@@ -9,7 +9,7 @@
 #define OBJECT_SEARCH_FACTOR 1.1
 //#define TEST_RIG 1
 
-#define MOTION_TICK_SECS 0.033
+#define MOTION_TICK_SECS 0.06
 
 void
 pp_callback(const pcl::visualization::PointPickingEvent& event, void*
@@ -203,6 +203,38 @@ PCLViewer::PCLViewer (QWidget *parent) :
 
   backgroundRenderer->AddActor2D( imageActor );
 
+  // Create cube to show on AR view
+  vtkCubeSource* cubeSource = vtkCubeSource::New();
+  cubeActor = vtkActor::New();
+  vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+  mapper->SetInput(cubeSource->GetOutput());
+  cubeActor->SetMapper(mapper);
+  cubeActor->SetScale(0.1);
+  cubeActor->SetPosition(0,0,25);
+  sceneRenderer->AddActor(cubeActor);
+
+
+  vtkCamera* camera = sceneRenderer->GetActiveCamera();
+  double camPos[3];
+  camPos[0] = kinect_base_position(0);
+  camPos[1] = kinect_base_position(1);
+  camPos[2] = kinect_base_position(2);
+  camera->SetPosition( camPos );
+
+  double lookat[3];
+  lookat[0] = kinect_base_position(0);
+  lookat[1] = kinect_base_position(1);
+  lookat[2] = kinect_base_position(2) - 1.0;
+  camera->SetFocalPoint( lookat );
+
+  double viewUp[3];
+  viewUp[0] = 0;
+  viewUp[1] = 1;
+  viewUp[2] = 0;
+  camera->SetViewUp( viewUp );
+  
+  camera->SetClippingRange(0.01, 10000.0);
+  camera->SetViewAngle(43);
   //return;
   
   //ui->qvtkWidget_3->update ();
@@ -227,7 +259,25 @@ void PCLViewer::update_cloud()
   cv::Mat tmp_color_3bytes;
   cv::cvtColor(tmp_color,tmp_color_3bytes,cv::COLOR_BGRA2RGB);
 
-  //cv::imshow("cvwindow", tmp_color_3bytes);
+
+  int roiW = tmp_color_3bytes.size().width * 0.8;
+  int roiH = tmp_color_3bytes.size().height * 0.8;
+
+  cv::Rect roi;
+  roi.x = tmp_color_3bytes.size().width/2 - roiW/2;
+  roi.y = tmp_color_3bytes.size().height/2 - roiH/2;
+  roi.width = roiW;
+  roi.height = roiH;
+
+  /* Crop the original image to the defined ROI */
+  cv::Mat crop = tmp_color_3bytes(roi);
+
+  cv::Size size(1920,1080);
+  cv::Mat croppedFullHD;
+  cv::resize(crop, croppedFullHD, size);//resize image
+
+
+  //cv::imshow("cvwindow", croppedFullHD);
 
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -454,7 +504,7 @@ void PCLViewer::update_cloud()
     // AR View
 
     // Set the data pointer to importer
-    importer->SetImportVoidPointer((void * ) tmp_color_3bytes.data, 1);
+    importer->SetImportVoidPointer((void * ) croppedFullHD.data, 1);
 
     // Flip Image
     imageFlip->SetInput(NULL); // refresh pointer to force render again
@@ -482,6 +532,34 @@ void PCLViewer::update_cloud()
     camera->SetParallelScale(0.5*yd);
     camera->SetFocalPoint(xc,yc,0.0);
     camera->SetPosition(xc,yc,d);
+
+    // Set the cube position
+    Eigen::Vector3f cubePosition_KF = kf.getPos();
+    Eigen::Vector3f cubePosition;
+    cubePosition << kinect_base_position(0) + pickedPoint.x,
+     kinect_base_position(1) - pickedPoint.y,
+     kinect_base_position(2) - pickedPoint.z;
+
+    cubeActor->SetPosition(cubePosition(0), cubePosition(1), cubePosition(2));
+
+    camera = sceneRenderer->GetActiveCamera();
+    double camPos[3];
+    camPos[0] = kinect_base_position(0) - 0.05; // Offset between depth and RGB
+    camPos[1] = kinect_base_position(1) - 0.05;
+    camPos[2] = kinect_base_position(2);
+    camera->SetPosition( camPos );
+
+    camPos[2] -= 1.0;
+    camera->SetFocalPoint( camPos );
+
+    double viewUp[3];
+    viewUp[0] = 0;
+    viewUp[1] = 1;
+    viewUp[2] = 0;
+    camera->SetViewUp( viewUp );
+    
+    camera->SetClippingRange(0.01, 10000.0);
+    camera->SetViewAngle(43);
   }
 
 
