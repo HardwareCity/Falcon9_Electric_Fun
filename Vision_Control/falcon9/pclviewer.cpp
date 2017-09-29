@@ -32,7 +32,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   ui (new Ui::PCLViewer)
 {
   ui->setupUi (this);
-  this->setWindowTitle ("PCL viewer");
+  //this->setWindowTitle ("PCL viewer");
 
   // Setup the cloud pointer
   cloud.reset (new PointCloudT);
@@ -76,15 +76,13 @@ PCLViewer::PCLViewer (QWidget *parent) :
   ui->qvtkWidget_2->update ();
 
   // Connect "random" button and the function
-  connect (ui->pushButton_random,  SIGNAL (clicked ()), this, SLOT (randomButtonPressed ()));
+  connect (ui->pushButton_save,  SIGNAL (clicked ()), this, SLOT (saveButtonPressed ()));
+  connect (ui->pushButton_setOrigin,  SIGNAL (clicked ()), this, SLOT (setOrigin()));
 
   // Connect R,G,B sliders and their functions
   connect (ui->horizontalSlider_min, SIGNAL (valueChanged (int)), this, SLOT (minSliderValueChanged (int)));
   connect (ui->horizontalSlider_max, SIGNAL (valueChanged (int)), this, SLOT (maxSliderValueChanged (int)));
   connect (ui->horizontalSlider_minHeight, SIGNAL (valueChanged (int)), this, SLOT (minHeightSliderValueChanged (int)));
-
-  // Connect point size slider
-  connect (ui->horizontalSlider_p, SIGNAL (valueChanged (int)), this, SLOT (pSliderValueChanged (int)));
 
   //viewer->addPointCloud (cloud, "cloud");
 
@@ -141,8 +139,9 @@ PCLViewer::PCLViewer (QWidget *parent) :
   viewer2->addCoordinateSystem (1.0);
 
   // Viewer2
-  viewer2->addText("Raw position: ", 10, 10, "rawPos");
-  viewer2->addText("KF position: ", 10, 20, "kfPos");
+  viewer2->addText("Raw position: ...", 10, 10, "rawPos");
+  viewer2->addText("KF position: ...", 10, 20, "kfPos");
+  viewer2->addText("Rocket position: ...", 10, 30, "rocketPos");
 
 
   Update_timer = new QTimer();
@@ -341,13 +340,22 @@ void PCLViewer::update_cloud()
       viewer2->updateSphere(p0, OBJECT_SIZE_WIDTH, 1.0, 0.0, 0.0, "rocket");
 
 
-      viewer2->updateText(QString().sprintf("Raw position: (%.2f,%.2f,%.2f)", pos(0), pos(1), pos(2)).toStdString(), 10, 10, "rawPos");
-      viewer2->updateText(QString().sprintf("KF position: (%.2f,%.2f,%.2f)", newPosition(0), newPosition(1), newPosition(2)).toStdString(), 10, 20, "kfPos");
+      viewer2->updateText(QString().sprintf("Raw position: (%6.2f,%6.2f,%6.2f)", pos(0), pos(1), pos(2)).toStdString(), 10, 10, "rawPos");
+      viewer2->updateText(QString().sprintf("KF position: (%6.2f,%6.2f,%6.2f)", newPosition(0), newPosition(1), newPosition(2)).toStdString(), 10, 20, "kfPos");
 
+
+      // Rocket position relative to rocket origin
+      rocketPos = kf.getPos();
+      rocketPos -= rocket_origin;
+      viewer2->updateText(QString().sprintf("Rocket position: (%6.2f,%6.2f,%6.2f)", rocketPos(0), rocketPos(1), rocketPos(2)).toStdString(), 10, 30, "rocketPos");
 
       viewer2->updatePointCloud(cloud_roi, "kinect");
       ui->qvtkWidget_2->update();
     }
+
+    // Set origin when setting new position
+    if(picked_event)
+      setOrigin();
 
 
     picked_event = false;
@@ -381,7 +389,7 @@ void PCLViewer::update_cloud()
 }
 
 void
-PCLViewer::randomButtonPressed ()
+PCLViewer::saveButtonPressed ()
 {
   printf ("Random button was pressed\n");
 
@@ -436,6 +444,12 @@ PCLViewer::minHeightSliderValueChanged (int value)
 {
   minHeight = value;
   ui->lbl_minHeight->setText(QString().sprintf("Min height: %.1fm", value*1.0/1000.0));
+}
+
+void PCLViewer::setOrigin()
+{
+  rocket_origin = kf.getPos();
+  //rocket_origin(2) -= OBJECT_SIZE_HEIGHT/2;
 }
 
 PCLViewer::~PCLViewer ()

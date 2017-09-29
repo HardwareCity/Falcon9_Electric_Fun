@@ -52,7 +52,7 @@ public:
 
 public Q_SLOTS:
   void
-  randomButtonPressed ();
+  saveButtonPressed ();
 
   void
   RGBsliderReleased ();
@@ -72,6 +72,8 @@ public Q_SLOTS:
   void
   update_cloud();
 
+  void setOrigin();
+
 
 protected:
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
@@ -90,6 +92,8 @@ private:
 
   QTimer* Update_timer;
   Eigen::Vector4f kinect_base_position;
+  Eigen::Vector3f rocket_origin;
+  Eigen::Vector3f rocketPos;
 
   pcl::PassThrough<pcl::PointXYZRGB> pass;
   pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
