@@ -38,14 +38,9 @@ PCLViewer::PCLViewer (QWidget *parent) :
   // Load user settings
   m_sSettingsFile = "demosettings.ini";
   loadSettings();
+  pid.setMaxOut(1.0);
 
-  // Setup the cloud pointer
-  cloud.reset (new PointCloudT);
-  // The number of points in the cloud
-  cloud->points.resize (200);
-
-  kf.reset();
-
+  // Update UI with loaded settings
   ui->horizontalSlider_min->setValue(minDist);
   minSliderValueChanged(minDist);
 
@@ -55,8 +50,22 @@ PCLViewer::PCLViewer (QWidget *parent) :
   ui->horizontalSlider_minHeight->setValue(minHeight);
   minHeightSliderValueChanged(minHeight);
 
+  ui->doubleSpin_kp->setValue(pid.getP());
+  ui->doubleSpin_ki->setValue(pid.getI());
+  ui->doubleSpin_kd->setValue(pid.getD());
+  ui->doubleSpin_maxint->setValue(pid.getMaxInt());
+
+  controlOutput = 0.0f;
   picked_event = false;
   run = false;
+
+
+  // Setup the cloud pointer
+  cloud.reset (new PointCloudT);
+  // The number of points in the cloud
+  cloud->points.resize (200);
+
+  kf.reset();
 
   // Set up the QVTK windows
   viewer.reset (new pcl::visualization::PCLVisualizer ("viewer", false));
@@ -74,16 +83,20 @@ PCLViewer::PCLViewer (QWidget *parent) :
   viewer2->setShowFPS(false); 
   ui->qvtkWidget_2->update ();
 
-  // Connect "random" button and the function
+  // Connect buttons and the functions
   connect (ui->pushButton_save,  SIGNAL (clicked ()), this, SLOT (saveButtonPressed ()));
   connect (ui->pushButton_setOrigin,  SIGNAL (clicked ()), this, SLOT (setOrigin()));
 
-  // Connect R,G,B sliders and their functions
+  // Connect sliders and their functions
   connect (ui->horizontalSlider_min, SIGNAL (valueChanged (int)), this, SLOT (minSliderValueChanged (int)));
   connect (ui->horizontalSlider_max, SIGNAL (valueChanged (int)), this, SLOT (maxSliderValueChanged (int)));
   connect (ui->horizontalSlider_minHeight, SIGNAL (valueChanged (int)), this, SLOT (minHeightSliderValueChanged (int)));
 
-  //viewer->addPointCloud (cloud, "cloud");
+  // Connect PID parameters
+  connect (ui->doubleSpin_kp, SIGNAL (valueChanged (double)), this, SLOT (kpChanged(double)));
+  connect (ui->doubleSpin_ki, SIGNAL (valueChanged (double)), this, SLOT (kiChanged(double)));
+  connect (ui->doubleSpin_kd, SIGNAL (valueChanged (double)), this, SLOT (kdChanged(double)));
+  connect (ui->doubleSpin_maxint, SIGNAL (valueChanged (double)), this, SLOT (maxIntChanged(double)));
 
   pSliderValueChanged (2);
   viewer->resetCamera ();
@@ -352,6 +365,19 @@ void PCLViewer::update_cloud()
       ui->qvtkWidget_2->update();
     }
 
+    
+
+    // Calculate control output
+    float target = (float)(ui->slider_target->value() / 1000.0);
+    controlOutput = pid.compensate(target - rocketPos(1));
+    fprintf(stdout,"error = %.2f , controlOutput = %.2f\n", target - rocketPos(1), controlOutput);
+    ui->throttle_pos->setValue(controlOutput*100);
+
+    // Update sliders and labels
+    ui->slider_current->setValue(rocketPos(1) * 1000.0);
+    ui->lbl_height_current->setText(QString().sprintf("%.2f", rocketPos(1)));
+    ui->lbl_height_target->setText(QString().sprintf("%.2f", target));
+
     // Set origin when setting new position
     if(picked_event)
       setOrigin();
@@ -436,9 +462,26 @@ PCLViewer::minHeightSliderValueChanged (int value)
   ui->lbl_minHeight->setText(QString().sprintf("Min height: %.1fm", value*1.0/1000.0));
 }
 
+void PCLViewer::kpChanged(double val) {
+  pid.setP(val);
+}
+
+void PCLViewer::kiChanged(double val) {
+  pid.setI(val);
+}
+
+void PCLViewer::kdChanged(double val) {
+  pid.setD(val);
+}
+
+void PCLViewer::maxIntChanged(double val) {
+  pid.setMaxInt(val);
+}
+
 void PCLViewer::setOrigin()
 {
   rocket_origin = kf.getPos();
+  ui->slider_target->setValue(0);
   //rocket_origin(2) -= OBJECT_SIZE_HEIGHT/2;
 }
 
@@ -461,6 +504,7 @@ void PCLViewer::loadSettings()
   pid.setP(settings.value("Kp", 1.0).toFloat());
   pid.setI(settings.value("Ki", 0.0).toFloat());
   pid.setD(settings.value("Kd", 0.0).toFloat());
+  pid.setMaxInt(settings.value("maxInt", 0.0).toFloat());
 }
 
 void PCLViewer::saveSettings()
@@ -471,7 +515,8 @@ void PCLViewer::saveSettings()
   settings.setValue("minHeight", minHeight);
 
   // PID Settings
-  settings.setValue("Kp", pid.getP());
-  settings.setValue("Ki", pid.getI());
-  settings.setValue("Kd", pid.getD());
+  settings.setValue("Kp", (double)pid.getP());
+  settings.setValue("Ki", (double)pid.getI());
+  settings.setValue("Kd", (double)pid.getD());
+  settings.setValue("maxInt", (double)pid.getMaxInt());
 }

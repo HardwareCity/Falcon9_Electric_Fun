@@ -70,6 +70,11 @@ public Q_SLOTS:
   void
   minHeightSliderValueChanged (int value);
 
+  void kpChanged(double val);
+  void kiChanged(double val);
+  void kdChanged(double val);
+  void maxIntChanged(double val);
+
   void
   update_cloud();
 
@@ -95,6 +100,7 @@ private:
 
   AbsoluteObjectKF kf;
   PID pid;
+  float controlOutput;
 
   QTimer* Update_timer;
   Eigen::Vector4f kinect_base_position;

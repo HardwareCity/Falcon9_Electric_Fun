@@ -11,7 +11,7 @@ class PID
 
 public:
 	PID( float kp = 1.0 , float ki = 0.0 , float kd = 0.0 , float minOut=0.0,
-	  float maxOut = 100.0 , float maxInt = 0.0 ); 
+	  float maxOut = 100.0 , float maxInt = 100.0 ); 
 	PID( const PID& pid ) ;
 
 	float compensate( float value );
