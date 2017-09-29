@@ -11,6 +11,9 @@
 
 #define MOTION_TICK_SECS 0.06
 
+//#define OBJECT_ACTOR_CUBE 1
+#define OBJECT_ACTOR_PCLOGO 1
+
 void
 pp_callback(const pcl::visualization::PointPickingEvent& event, void*
 viewer_void){
@@ -203,16 +206,35 @@ PCLViewer::PCLViewer (QWidget *parent) :
 
   backgroundRenderer->AddActor2D( imageActor );
 
+  cubeActor = vtkActor::New();
+#ifdef OBJECT_ACTOR_CUBE
   // Create cube to show on AR view
   vtkCubeSource* cubeSource = vtkCubeSource::New();
-  cubeActor = vtkActor::New();
   vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
   mapper->SetInput(cubeSource->GetOutput());
   cubeActor->SetMapper(mapper);
   cubeActor->SetScale(0.1);
   cubeActor->SetPosition(0,0,25);
   sceneRenderer->AddActor(cubeActor);
+#endif
+#ifdef OBJECT_ACTOR_PCLOGO
+  
+  vtkSmartPointer<vtkSTLReader> reader = vtkSmartPointer<vtkSTLReader>::New();
+  reader->SetFileName("../3d_models/pixelscamp_rocket.stl");
+  reader->Update();
+ 
+  // Visualize
+  vtkSmartPointer<vtkPolyDataMapper> mapper =
+    vtkSmartPointer<vtkPolyDataMapper>::New();
+  mapper->SetInputConnection(reader->GetOutputPort());
+ 
 
+  cubeActor->SetMapper(mapper);
+  cubeActor->SetScale(0.005);
+  cubeActor->SetPosition(0,0,25);
+  cubeActor->GetProperty()->SetColor(233/255.0, 75/255.0, 53/255.0);
+  sceneRenderer->AddActor(cubeActor);
+#endif
 
   vtkCamera* camera = sceneRenderer->GetActiveCamera();
   double camPos[3];
@@ -544,9 +566,16 @@ void PCLViewer::update_cloud()
 
     camera = sceneRenderer->GetActiveCamera();
     double camPos[3];
+#ifdef OBJECT_ACTOR_CUBE
     camPos[0] = kinect_base_position(0) - 0.05; // Offset between depth and RGB
     camPos[1] = kinect_base_position(1) - 0.05;
     camPos[2] = kinect_base_position(2);
+#endif
+#ifdef OBJECT_ACTOR_PCLOGO
+    camPos[0] = kinect_base_position(0) + 0.14; // Offset between depth and RGB
+    camPos[1] = kinect_base_position(1) - 0.04;
+    camPos[2] = kinect_base_position(2);
+#endif
     camera->SetPosition( camPos );
 
     camPos[2] -= 1.0;

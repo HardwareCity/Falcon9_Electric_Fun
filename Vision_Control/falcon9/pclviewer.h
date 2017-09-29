@@ -48,6 +48,8 @@
 #include "vtkTransform.h"
 #include "vtkPlane.h"
 
+#include <vtkSTLReader.h>
+
 typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
 
