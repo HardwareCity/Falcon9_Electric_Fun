@@ -68,7 +68,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   run = false;
   showFog = false;
   finalThrustIntegral = 0.0f;
-
+  textSide = NULL;
 
   // Setup the cloud pointer
   cloud.reset (new PointCloudT);
@@ -299,14 +299,20 @@ void PCLViewer::sendSerial()
 
   if(ui->pushButton_connect->isChecked())
   {
-    serial.write("13\n");
+    unsigned char sendVal = (unsigned char)13;
+    //serial.write(sendVal);
+    //serial.write(QString().sprintf("%d\n", finalThrust.mean()));
+
+    serial.write(QString().sprintf("%c", 13).toStdString().c_str());
     //fprintf(stdout,"Sending...\n");
   }else{
     // Not connected, zero the final thrust
     finalThrustIntegral = 0;
   }
   
-  ui->thrustOut->setValue(finalThrust.mean());
+  int finalThrustFiltered = finalThrust.mean();
+  ui->thrustOut->setValue(finalThrustFiltered);
+  this->showFog = finalThrustFiltered > 10;
 }
 
 void PCLViewer::update_cloud()
@@ -603,6 +609,22 @@ void PCLViewer::update_cloud()
 
     cubeActor->SetPosition(cubePosition(0), cubePosition(1), cubePosition(2));
 
+    if(textSide)
+    {
+      // Delete last text
+      sceneRenderer->RemoveActor(textSide);
+      textSide->Delete();
+    }
+
+    // Create new text
+    textSide = createText(QString().sprintf("TESTE\nTESTE2"));
+    textSide->GetProperty()->SetAmbient(1.0);
+    textSide->GetProperty()->SetColor(1.0,1.0,1.0);
+    //textSide->SetOrientation(0,0,0);
+    textSide->SetPosition(cubePosition(0) + 0.4, cubePosition(1), cubePosition(2));
+    textSide->SetScale(0.07);
+    sceneRenderer->AddActor(textSide);
+
     camera = sceneRenderer->GetActiveCamera();
     double camPos[3];
 #ifdef OBJECT_ACTOR_CUBE
@@ -689,7 +711,7 @@ PCLViewer::RGBsliderReleased ()
 
 void PCLViewer::showPixelFog(bool active) {
   fprintf(stderr,"Showfog: %d\n", active?1:0);
-  this->showFog = active;
+  
 }
 
 void
@@ -896,3 +918,16 @@ void PCLViewer::connectSerial(bool on) {
     serial.close();
   }
 }
+
+vtkActor* PCLViewer::createText(QString text, QColor color){
+      vtkActor* actor = vtkActor::New();
+      vtkSmartPointer<vtkVectorText> txt = vtkSmartPointer<vtkVectorText>::New();
+      txt->SetText(text.toStdString().c_str());
+      vtkSmartPointer<vtkPolyDataMapper> txtRobotMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+      txtRobotMapper->SetInput(txt->GetOutput());
+      actor->SetMapper(txtRobotMapper);
+      actor->GetProperty()->SetColor(color.red()/255.0,color.green()/255.0,color.blue()/255.0);
+      actor->GetProperty()->SetAmbient(1.0);
+      actor->SetOrientation(0,0,90);
+      return actor;
+  }

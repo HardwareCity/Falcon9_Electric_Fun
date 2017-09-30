@@ -160,6 +160,7 @@ private:
 
   vtkCubeSource* cubeSource;
   vtkActor* cubeActor;
+  vtkActor* textSide;
 
   bool showFog;
   std::vector<FogPixel> fogElements;
@@ -173,6 +174,8 @@ private:
 
   SlidingWindow finalThrust;
   float finalThrustIntegral;
+
+  vtkActor* createText(QString text, QColor color = Qt::white);
 };
 
 #endif // PCLVIEWER_H
