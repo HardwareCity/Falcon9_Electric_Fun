@@ -6,8 +6,8 @@
 #include <QtSerialPort/QSerialPortInfo>
 
 #define OBJECT_SIZE_WIDTH 0.10
-//#define OBJECT_SIZE_HEIGHT 1.18
-#define OBJECT_SIZE_HEIGHT 0.15
+#define OBJECT_SIZE_HEIGHT 1.18
+//#define OBJECT_SIZE_HEIGHT 0.15
 #define OBJECT_SEARCH_FACTOR 1.1
 //#define TEST_RIG 1
 
