@@ -3,9 +3,10 @@
 
 #include <pcl/visualization/point_picking_event.h> 
 #include <QSettings>
+#include <QtSerialPort/QSerialPortInfo>
 
 #define OBJECT_SIZE_WIDTH 0.10
-#define OBJECT_SIZE_HEIGHT 0.57
+#define OBJECT_SIZE_HEIGHT 1.1
 #define OBJECT_SEARCH_FACTOR 1.1
 //#define TEST_RIG 1
 
@@ -14,7 +15,8 @@
 //#define OBJECT_ACTOR_CUBE 1
 #define OBJECT_ACTOR_PCLOGO 1
 
-//#define CAMERA_TILT 
+//#define CAMERA_TILT 5 * M_PI/180
+#define CAMERA_TILT 0
 
 void
 pp_callback(const pcl::visualization::PointPickingEvent& event, void*
@@ -35,7 +37,8 @@ viewer_void){
 
 PCLViewer::PCLViewer (QWidget *parent) :
   QMainWindow (parent),
-  ui (new Ui::PCLViewer)
+  ui (new Ui::PCLViewer),
+  finalThrust(10)
 {
   ui->setupUi (this);
   //this->setWindowTitle ("PCL viewer");
@@ -64,6 +67,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   picked_event = false;
   run = false;
   showFog = false;
+  finalThrustIntegral = 0.0f;
 
 
   // Setup the cloud pointer
@@ -93,6 +97,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   connect (ui->pushButton_save,  SIGNAL (clicked ()), this, SLOT (saveButtonPressed ()));
   connect (ui->pushButton_setOrigin,  SIGNAL (clicked ()), this, SLOT (setOrigin()));
   connect (ui->pushButton_showFog,  SIGNAL (toggled(bool)), this, SLOT (showPixelFog(bool)));
+  connect (ui->pushButton_connect,  SIGNAL (toggled(bool)), this, SLOT (connectSerial(bool)));
 
   // Connect sliders and their functions
   connect (ui->horizontalSlider_min, SIGNAL (valueChanged (int)), this, SLOT (minSliderValueChanged (int)));
@@ -120,14 +125,14 @@ PCLViewer::PCLViewer (QWidget *parent) :
   k2g->printParameters();
 
 
-  cloud_new->sensor_orientation_.w() = 0.0;
+  cloud_new->sensor_orientation_.w() = CAMERA_TILT;
   cloud_new->sensor_orientation_.x() = 1.0;
   cloud_new->sensor_orientation_.y() = 0.0;
   cloud_new->sensor_orientation_.z() = 0.0;
 
 
   kinect_base_position(0) = 0.0; // x
-  kinect_base_position(1) = 1.0; // y
+  kinect_base_position(1) = 2.0; // y
   kinect_base_position(2) = 0.0; // z
   kinect_base_position(3) = 0.0; // ?
 
@@ -237,7 +242,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   cubeActor->SetMapper(mapper);
   cubeActor->SetScale(0.005);
   cubeActor->SetPosition(0,0,25);
-  cubeActor->SetOrigin(-0.18,0,0);
+  cubeActor->SetOrigin(-0.14,0,0);
   cubeActor->GetProperty()->SetColor(233/255.0, 75/255.0, 53/255.0);
   sceneRenderer->AddActor(cubeActor);
 #endif
@@ -251,8 +256,8 @@ PCLViewer::PCLViewer (QWidget *parent) :
 
   double lookat[3];
   lookat[0] = kinect_base_position(0);
-  lookat[1] = kinect_base_position(1);
-  lookat[2] = kinect_base_position(2) - 1.0;
+  lookat[1] = kinect_base_position(1) - sin(CAMERA_TILT);
+  lookat[2] = kinect_base_position(2) - cos(CAMERA_TILT);
   camera->SetFocalPoint( lookat );
 
   double viewUp[3];
@@ -273,7 +278,35 @@ PCLViewer::PCLViewer (QWidget *parent) :
   connect(Update_timer, SIGNAL(timeout()), this, SLOT(update_cloud()));
   Update_timer->start(100);
 
+  sendSerialTimer = new QTimer();
+  connect(sendSerialTimer, SIGNAL(timeout()), this, SLOT(sendSerial()));
+  sendSerialTimer->start(50);
+
   //cv::namedWindow("cvwindow");
+}
+
+void PCLViewer::sendSerial()
+{
+  finalThrustIntegral += controlOutput*10.0;
+  if(finalThrustIntegral > 100)
+    finalThrustIntegral = 100;
+  if(finalThrustIntegral < 0)
+    finalThrustIntegral = 0;
+
+  fprintf(stdout, "final integral: %.2f\n", finalThrustIntegral);
+  finalThrust.addValue(finalThrustIntegral);
+  
+
+  if(ui->pushButton_connect->isChecked())
+  {
+    serial.write("13\n");
+    //fprintf(stdout,"Sending...\n");
+  }else{
+    // Not connected, zero the final thrust
+    finalThrustIntegral = 0;
+  }
+  
+  ui->thrustOut->setValue(finalThrust.mean());
 }
 
 void PCLViewer::update_cloud()
@@ -578,14 +611,17 @@ void PCLViewer::update_cloud()
     camPos[2] = kinect_base_position(2);
 #endif
 #ifdef OBJECT_ACTOR_PCLOGO
-    camPos[0] = kinect_base_position(0) - 0.05; // Offset between depth and RGB
+    camPos[0] = kinect_base_position(0); // Offset between depth and RGB
     camPos[1] = kinect_base_position(1) - 0.04;
     camPos[2] = kinect_base_position(2);
 #endif
     camera->SetPosition( camPos );
 
-    camPos[2] -= 1.0;
-    camera->SetFocalPoint( camPos );
+    double lookat[3];
+    lookat[0] = kinect_base_position(0);
+    lookat[1] = kinect_base_position(1) - sin(CAMERA_TILT);
+    lookat[2] = kinect_base_position(2) - cos(CAMERA_TILT);
+    camera->SetFocalPoint( lookat );
 
     double viewUp[3];
     viewUp[0] = 0;
@@ -804,7 +840,7 @@ FogPixel PCLViewer::createFogPixel()
     kinect_base_position(2) - pickedPoint.z;
   fogActor->GetProperty()->SetColor(233/255.0, 75/255.0, 53/255.0);
   fogActor->SetPosition(cubePosition(0), cubePosition(1), cubePosition(2));
-
+  fogActor->GetProperty()->SetOpacity(0);
   sceneRenderer->AddActor(fogActor);
 
   
@@ -824,4 +860,39 @@ int PCLViewer::getRandom(int min, int max) {
   int range = max - min;
   int number = range*2;
   return qrand() % number - (range/2);
+}
+
+void PCLViewer::connectSerial(bool on) {
+  if(on)
+  {
+    bool found = false;
+    foreach (const QSerialPortInfo &info, QSerialPortInfo::availablePorts())
+    {
+      //qDebug() << "Name : " << info.portName();
+      //qDebug() << "Description : " << info.description();
+      //qDebug() << "Manufacturer: " << info.manufacturer();
+
+      // Example use QSerialPort
+
+      if(QString::compare(info.systemLocation(), ui->txt_connect->text(), Qt::CaseSensitive) == 0)
+      {
+        found = true;
+        serial.setPort(info);
+        if (!serial.open(QIODevice::ReadWrite))
+          ui->pushButton_connect->setChecked(false);
+        else
+        {
+          serial.setBaudRate(QSerialPort::Baud9600);
+          serial.setDataBits(QSerialPort::Data8);
+          serial.setParity(QSerialPort::NoParity);
+          serial.setStopBits(QSerialPort::OneStop);
+          serial.setFlowControl(QSerialPort::NoFlowControl);
+        }
+      }
+    }
+    if(!found)
+      ui->pushButton_connect->setChecked(false);
+  }else{
+    serial.close();
+  }
 }

@@ -8,10 +8,12 @@
 #include "AbsoluteObjectKF.h"
 #include "PID.h"
 #include "ClippedRamp.h"
+#include "SlidingWindow.h"
 
 // Qt
 #include <QMainWindow>
 #include <QTimer>
+#include <QtSerialPort/QSerialPort>
 
 // Point Cloud Library
 #include <pcl/point_cloud.h>
@@ -106,12 +108,13 @@ public Q_SLOTS:
   void kdChanged(double val);
   void maxIntChanged(double val);
 
-  void
-  update_cloud();
+  void update_cloud();
+  void sendSerial();
 
   void setOrigin();
 
   void showPixelFog(bool active);
+  void connectSerial(bool on);
 
 
 protected:
@@ -136,6 +139,7 @@ private:
   float controlOutput;
 
   QTimer* Update_timer;
+  QTimer* sendSerialTimer;
   Eigen::Vector4f kinect_base_position;
   Eigen::Vector3f rocket_origin;
   Eigen::Vector3f rocketPos;
@@ -163,6 +167,12 @@ private:
   FogPixel createFogPixel();
 
   int getRandom(int min, int max);
+
+  // Serial
+  QSerialPort serial;
+
+  SlidingWindow finalThrust;
+  float finalThrustIntegral;
 };
 
 #endif // PCLVIEWER_H
