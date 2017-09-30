@@ -137,6 +137,7 @@ private:
   AbsoluteObjectKF kf;
   PID pid;
   float controlOutput;
+  bool applyPID;
 
   QTimer* Update_timer;
   QTimer* sendSerialTimer;

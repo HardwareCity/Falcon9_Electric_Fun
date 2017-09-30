@@ -70,6 +70,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   showFog = false;
   finalThrustIntegral = 0.0f;
   textSide = NULL;
+  applyPID = false;
 
   // Setup the cloud pointer
   cloud.reset (new PointCloudT);
@@ -296,7 +297,15 @@ void PCLViewer::sendSerial()
 
   // Hack base + PID
   float controlOutputFloat = controlOutput*10.0;
-  finalThrustIntegral = ui->slider_current->value() + controlOutputFloat;
+  if(!applyPID)
+  {
+    if(controlOutputFloat < -1)
+      applyPID = true;
+  }
+  finalThrustIntegral = ui->slider_current->value();
+
+  if(applyPID)
+    finalThrustIntegral += controlOutputFloat;
 
   fprintf(stdout, "FINAL: %.2f + %.2f = %.2f\n", ui->slider_current->value()*1.0, controlOutputFloat, finalThrustIntegral);
   finalThrust.addValue(finalThrustIntegral);
@@ -773,7 +782,7 @@ void PCLViewer::maxIntChanged(double val) {
 void PCLViewer::setOrigin()
 {
   rocket_origin = kf.getPos();
-  ui->slider_target->setValue(0);
+  ui->slider_target->setValue(100);
   //rocket_origin(2) -= OBJECT_SIZE_HEIGHT/2;
 }
 
@@ -927,6 +936,11 @@ void PCLViewer::connectSerial(bool on) {
     }
     if(!found)
       ui->pushButton_connect->setChecked(false);
+    else
+    {
+      pid.reset();
+      applyPID = false;
+    }
   }else{
     serial.close();
   }
