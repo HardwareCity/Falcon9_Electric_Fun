@@ -6,7 +6,8 @@
 #include <QtSerialPort/QSerialPortInfo>
 
 #define OBJECT_SIZE_WIDTH 0.10
-#define OBJECT_SIZE_HEIGHT 1.1
+//#define OBJECT_SIZE_HEIGHT 1.18
+#define OBJECT_SIZE_HEIGHT 0.15
 #define OBJECT_SEARCH_FACTOR 1.1
 //#define TEST_RIG 1
 
@@ -38,7 +39,7 @@ viewer_void){
 PCLViewer::PCLViewer (QWidget *parent) :
   QMainWindow (parent),
   ui (new Ui::PCLViewer),
-  finalThrust(10)
+  finalThrust(4)
 {
   ui->setupUi (this);
   //this->setWindowTitle ("PCL viewer");
@@ -293,18 +294,30 @@ void PCLViewer::sendSerial()
   if(finalThrustIntegral < 0)
     finalThrustIntegral = 0;
 
-  fprintf(stdout, "final integral: %.2f\n", finalThrustIntegral);
+  // Hack base + PID
+  float controlOutputFloat = controlOutput*10.0;
+  finalThrustIntegral = ui->slider_current->value() + controlOutputFloat;
+
+  fprintf(stdout, "FINAL: %.2f + %.2f = %.2f\n", ui->slider_current->value()*1.0, controlOutputFloat, finalThrustIntegral);
   finalThrust.addValue(finalThrustIntegral);
   
 
   if(ui->pushButton_connect->isChecked())
   {
-    unsigned char sendVal = (unsigned char)13;
+    int val = finalThrust.mean();
+    if(val > 100) val = 100;
+    if(val < 0) val = 0;
+    //unsigned char sendVal = (unsigned char)val;
     //serial.write(sendVal);
     //serial.write(QString().sprintf("%d\n", finalThrust.mean()));
 
-    serial.write(QString().sprintf("%c", 13).toStdString().c_str());
-    //fprintf(stdout,"Sending...\n");
+    QByteArray ba;
+    ba.resize(2);
+    ba[0] = val + 1;
+    ba[1] = 0x00;
+
+    serial.write(ba);
+    fprintf(stdout,"Sending...\n");
   }else{
     // Not connected, zero the final thrust
     finalThrustIntegral = 0;
@@ -555,7 +568,7 @@ void PCLViewer::update_cloud()
     ui->throttle_pos->setValue(controlOutput*100);
 
     // Update sliders and labels
-    ui->slider_current->setValue(rocketPos(1) * 1000.0);
+    //ui->slider_current->setValue(rocketPos(1) * 1000.0);
     ui->lbl_height_current->setText(QString().sprintf("%.2f", rocketPos(1)));
     ui->lbl_height_target->setText(QString().sprintf("%.2f", target));
 
@@ -617,7 +630,7 @@ void PCLViewer::update_cloud()
     }
 
     // Create new text
-    textSide = createText(QString().sprintf("TESTE\nTESTE2"));
+    textSide = createText(QString().sprintf("Height: %.1f\nThrust: %d%%", rocketPos(1), ui->thrustOut->value()));
     textSide->GetProperty()->SetAmbient(1.0);
     textSide->GetProperty()->SetColor(1.0,1.0,1.0);
     //textSide->SetOrientation(0,0,0);
