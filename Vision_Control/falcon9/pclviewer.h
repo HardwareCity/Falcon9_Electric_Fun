@@ -50,6 +50,7 @@
 #include "vtkPerspectiveTransform.h"
 #include "vtkTransform.h"
 #include "vtkPlane.h"
+#include "vtkTextActor.h"
 
 #include <vtkSTLReader.h>
 
@@ -138,6 +139,7 @@ private:
   PID pid;
   float controlOutput;
   bool applyPID;
+  float countDownTimer;
 
   QTimer* Update_timer;
   QTimer* sendSerialTimer;
@@ -154,10 +156,13 @@ private:
   // AR VTK
   vtkRenderWindow *renWin;
   vtkRenderer *backgroundRenderer;
+  vtkRenderer *counterRenderer;
   vtkRenderer *sceneRenderer;
   vtkImageImport *importer;
   vtkImageActor *imageActor;
   vtkImageFlip *imageFlip;
+
+  vtkTextActor *counterActor;
 
   vtkCubeSource* cubeSource;
   vtkActor* cubeActor;

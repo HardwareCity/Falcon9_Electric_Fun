@@ -71,6 +71,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   finalThrustIntegral = 0.0f;
   textSide = NULL;
   applyPID = false;
+  countDownTimer = 5999;
 
   // Setup the cloud pointer
   cloud.reset (new PointCloudT);
@@ -178,6 +179,7 @@ PCLViewer::PCLViewer (QWidget *parent) :
   ui->qvtkWidget_3->SetRenderWindow (renWin);
 
   backgroundRenderer = vtkRenderer::New();
+  counterRenderer = vtkRenderer::New();
   sceneRenderer = vtkRenderer::New();
   importer = vtkImageImport::New();
   imageActor = vtkImageActor::New();
@@ -207,11 +209,23 @@ PCLViewer::PCLViewer (QWidget *parent) :
   imageActor->SetInput( imageFlip->GetOutput() );
   imageActor->SetDisplayExtent(0, 1920-1, 0, 1080-1, 0, 0);
 
-  backgroundRenderer->SetLayer(0);
-  sceneRenderer->SetLayer(1);
 
-  renWin->SetNumberOfLayers(2);
+  // Add Counter
+  counterActor = vtkTextActor::New();
+  counterActor->SetInput ( "5...." );
+  counterActor->SetPosition2 ( 100, 100 );
+  counterActor->GetTextProperty()->SetFontSize ( 340 );
+  counterActor->GetTextProperty()->SetColor ( 1.0, 1.0, 1.0 );
+  counterRenderer->AddActor2D ( counterActor );
+
+
+  backgroundRenderer->SetLayer(0);
+  counterRenderer->SetLayer(1);
+  sceneRenderer->SetLayer(2);
+
+  renWin->SetNumberOfLayers(3);
   renWin->AddRenderer(backgroundRenderer);
+  renWin->AddRenderer(counterRenderer);
   renWin->AddRenderer(sceneRenderer);
   renWin->SetSize(1920,1080);
 
@@ -282,13 +296,15 @@ PCLViewer::PCLViewer (QWidget *parent) :
 
   sendSerialTimer = new QTimer();
   connect(sendSerialTimer, SIGNAL(timeout()), this, SLOT(sendSerial()));
-  sendSerialTimer->start(50);
+  sendSerialTimer->start(100);
 
   //cv::namedWindow("cvwindow");
 }
 
 void PCLViewer::sendSerial()
 {
+  
+
   finalThrustIntegral += controlOutput*10.0;
   if(finalThrustIntegral > 100)
     finalThrustIntegral = 100;
@@ -326,10 +342,14 @@ void PCLViewer::sendSerial()
     ba[1] = 0x00;
 
     serial.write(ba);
-    fprintf(stdout,"Sending...\n");
+    //fprintf(stdout,"Sending...\n");
+
+    countDownTimer -= 110;
   }else{
     // Not connected, zero the final thrust
     finalThrustIntegral = 0;
+    countDownTimer = 5999;
+    applyPID = false;
   }
   
   int finalThrustFiltered = finalThrust.mean();
@@ -364,6 +384,13 @@ void PCLViewer::update_cloud()
   cv::Size size(1920,1080);
   cv::Mat croppedFullHD;
   cv::resize(crop, croppedFullHD, size);//resize image
+
+  // Background 
+  if(!ui->pushButton_connect->isChecked() || countDownTimer > 0)
+  {
+    croppedFullHD *= 0.1;//cv::Scalar(0,0,0);
+  }
+
 
 
   //cv::imshow("cvwindow", croppedFullHD);
@@ -631,6 +658,13 @@ void PCLViewer::update_cloud()
 
     cubeActor->SetPosition(cubePosition(0), cubePosition(1), cubePosition(2));
 
+    if(!ui->pushButton_connect->isChecked() || countDownTimer > 0)
+    {
+      cubeActor->GetProperty()->SetOpacity(0.3);
+    }else{
+      cubeActor->GetProperty()->SetOpacity(1.0);
+    }
+
     if(textSide)
     {
       // Delete last text
@@ -645,6 +679,12 @@ void PCLViewer::update_cloud()
     //textSide->SetOrientation(0,0,0);
     textSide->SetPosition(cubePosition(0) + 0.4, cubePosition(1), cubePosition(2));
     textSide->SetScale(0.07);
+    if(!ui->pushButton_connect->isChecked() || countDownTimer > 0)
+    {
+      textSide->GetProperty()->SetOpacity(0.3);
+    }else{
+      textSide->GetProperty()->SetOpacity(1.0);
+    }
     sceneRenderer->AddActor(textSide);
 
     camera = sceneRenderer->GetActiveCamera();
@@ -676,6 +716,21 @@ void PCLViewer::update_cloud()
     camera->SetClippingRange(0.01, 10000.0);
     camera->SetViewAngle(43);
   
+    // Update Counter
+    int counterInt = (int)(countDownTimer/1000.0);
+    if(counterInt >= 0)
+    {
+      //if(counterInt <= 0)
+        counterActor->SetInput ( QString().sprintf("%d...", counterInt).toStdString().c_str() );
+      //else
+      //  counterActor->SetInput ( "GO");
+
+      counterActor->GetProperty()->SetOpacity(1);
+    }else{
+      counterActor->GetProperty()->SetOpacity(0);
+    }
+    
+
     // FOG
     updatePixelFog(MOTION_TICK_SECS);
 
@@ -909,6 +964,7 @@ int PCLViewer::getRandom(int min, int max) {
 void PCLViewer::connectSerial(bool on) {
   if(on)
   {
+    countDownTimer = 5999;
     bool found = false;
     foreach (const QSerialPortInfo &info, QSerialPortInfo::availablePorts())
     {
